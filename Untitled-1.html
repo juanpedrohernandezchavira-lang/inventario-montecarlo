@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TESCH - Simulador Estocástico de Inventarios Farmacéuticos (Montecarlo & PEPS)</title>
+    <style>
+        :root {
+            --primary: #0f5132;
+            --secondary: #198754;
+            --dark: #212529;
+            --light: #f8f9fa;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #0dcaf0;
+            --edit: #0d6efd;
+            --gray-border: #ced4da;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #e9ecef;
+            color: var(--dark);
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background: linear-gradient(135deg, #09331e 0%, var(--primary) 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        header h1 { margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; }
+        header p { margin: 5px 0 0 0; opacity: 0.8; font-size: 14px; }
+        .badge-tesch { background-color: var(--warning); color: var(--dark); padding: 4px 8px; font-weight: bold; border-radius: 4px; }
+        
+        .container { max-width: 1400px; margin: 25px auto; padding: 0 20px; display: grid; grid-template-columns: 400px 1fr; gap: 20px; }
+        @media(max-width: 1000px) { .container { grid-template-columns: 1fr; } }
+
+        .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-top: 5px solid var(--primary); margin-bottom: 20px; }
+        .panel h2 { margin-top: 0; color: var(--primary); font-size: 18px; border-bottom: 2px solid #dee2e6; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;}
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 13px; color: #495057; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid var(--gray-border); border-radius: 4px; box-sizing: border-box; font-size: 13px; }
+        
+        .btn-sim { display: block; width: 100%; background-color: var(--secondary); color: white; border: none; padding: 12px; font-size: 15px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s; text-transform: uppercase; }
+        .btn-sim:hover { background-color: #146c43; }
+        
+        .btn-action { background-color: var(--primary); padding: 8px; font-size: 13px; margin-top: 5px; }
+        .btn-cancel { background-color: #6c757d; display: none; margin-top: 5px; }
+
+        .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px; }
+        .metric-card { background: var(--light); padding: 15px; border-radius: 6px; border-left: 4px solid var(--info); text-align: center; }
+        .metric-card.danger { border-left-color: var(--danger); }
+        .metric-card.success { border-left-color: var(--secondary); }
+        .metric-card h3 { margin: 0; font-size: 13px; text-transform: uppercase; color: #6c757d; }
+        .metric-card p { margin: 5px 0 0 0; font-size: 22px; font-weight: bold; color: var(--dark); }
+
+        .db-tabs { display: flex; gap: 5px; margin-bottom: 10px; background: #eee; padding: 5px; border-radius: 4px; }
+        .tab-btn { flex: 1; background: none; border: none; padding: 8px 10px; cursor: pointer; font-weight: bold; color: #495057; border-radius: 4px; font-size: 12px; transition: 0.2s; text-align: center; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        
+        .table-responsive { overflow-x: auto; max-height: 280px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+        th { background-color: #f1f3f5; padding: 10px; font-weight: 600; border-bottom: 2px solid #dee2e6; position: sticky; top: 0; z-index: 10; }
+        td { padding: 8px 10px; border-bottom: 1px solid #dee2e6; vertical-align: middle; }
+        tr:hover { background-color: rgba(0,0,0,0.02); }
+        
+        .alert-indicator { padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; display: inline-block; }
+        .alert-ok { background-color: #d1e7dd; color: #0f5132; }
+        .alert-warning { background-color: #fff3cd; color: #664d03; }
+        .alert-danger { background-color: #f8d7da; color: #842029; }
+
+        .visual-shelf { display: flex; gap: 10px; flex-wrap: wrap; background: #f1f3f5; padding: 15px; border-radius: 6px; margin-top: 10px; border: 1px dashed #ccc; max-height: 250px; overflow-y: auto; }
+        .box-medicine { background: white; border: 2px solid #ced4da; border-radius: 4px; padding: 8px; width: calc(33.33% - 7px); box-sizing: border-box; position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        @media(max-width: 600px) { .box-medicine { width: 100%; } }
+        .box-medicine.peps-next { border-color: var(--info); box-shadow: 0 0 8px rgba(13,202,240,0.5); }
+        .box-title { font-weight: bold; font-size: 12px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .box-info { font-size: 11px; color: #6c757d; }
+        
+        .sub-form { display: none; background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #dee2e6; margin-top: 8px; }
+        .sub-form.active { display: block; }
+
+        .btn-crud { border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold; color: white; margin-right: 2px; }
+        .btn-crud-edit { background-color: var(--edit); }
+        .btn-crud-del { background-color: var(--danger); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <span class="badge-tesch">TESCH - GRUPO 4401</span>
+        <h1>Simulador Estocástico de Inventario Farmacéutico</h1>
+        <p>Enfoque STEAM - Modelo de Validación de Montecarlo y Trazabilidad Logística PEPS en Chicoloapan</p>
+    </header>
+
+    <div class="container">
+        <div>
+            <div class="panel">
+                <h2>⚙️ Variables (M/M/1)</h2>
+                <div class="form-group">
+                    <label for="lambda">Tasa de Llegada (λ) - Clientes/Hora:</label>
+                    <input type="number" id="lambda" value="6" min="1" max="20">
+                </div>
+                <div class="form-group">
+                    <label for="mu">Tasa de Servicio (μ) - Atenciones/Hora:</label>
+                    <input type="number" id="mu" value="9" min="1" max="30">
+                </div>
+                <div class="form-group">
+                    <label for="horas">Horizonte de Simulación (Horas):</label>
+                    <input type="number" id="horas" value="120" min="12" max="500">
+                </div>
+                <div class="form-group">
+                    <label for="iteraciones">Réplicas de Montecarlo:</label>
+                    <select id="iteraciones">
+                        <option value="100">100 iteraciones</option>
+                        <option value="1000" selected>1,000 iteraciones</option>
+                        <option value="10000">10,000 iteraciones</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="politica">Estrategia de Despacho:</label>
+                    <select id="politica" onchange="renderShelf()">
+                        <option value="PEPS">PEPS Automatizado (FIFO)</option>
+                        <option value="MANUAL">Manual Reactivo (Deficiente)</option>
+                    </select>
+                </div>
+                <button class="btn-sim" onclick="ejecutarSimulacion()">🚀 Ejecutar Motor Estocástico</button>
+            </div>
+
+            <div class="panel">
+                <h2 id="form-panel-title">📝 Gestión Base de Datos</h2>
+                <div class="db-tabs" id="form-tabs">
+                    <button class="tab-btn active" id="f-tab-lote" onclick="switchFormTab('lote')">+ Lote</button>
+                    <button class="tab-btn" id="f-tab-med" onclick="switchFormTab('med')">+ Med</button>
+                    <button class="tab-btn" id="f-tab-prov" onclick="switchFormTab('prov')">+ Prov</button>
+                </div>
+
+                <div id="form-lote" class="sub-form active">
+                    <input type="hidden" id="edit-lote-id" value="">
+                    <div class="form-group">
+                        <label>Medicamento Base [FK]:</label>
+                        <select id="lote-medid"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Código Identificador / No. Lote:</label>
+                        <input type="text" id="lote-codigo" placeholder="Ej: L-AMX-06">
+                    </div>
+                    <div class="form-group">
+                        <label>Stock Inicial Unidades:</label>
+                        <input type="number" id="lote-stock" value="50">
+                    </div>
+                    <div class="form-group">
+                        <label>Costo de Adquisición ($):</label>
+                        <input type="number" id="lote-costo" value="45.00" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha Vencimiento (COFEPRIS):</label>
+                        <input type="date" id="lote-caducidad" value="2026-12-31">
+                    </div>
+                    <button class="btn-sim btn-action" onclick="guardarLote()">Guardar Lote</button>
+                    <button class="btn-sim btn-cancel" id="btn-cancel-lote" onclick="cancelarEdicion('lote')">Cancelar Edición</button>
+                </div>
+
+                <div id="form-med" class="sub-form">
+                    <input type="hidden" id="edit-med-id" value="">
+                    <div class="form-group">
+                        <label>Nombre Comercial / Presentación:</label>
+                        <input type="text" id="med-nombre" placeholder="Ej: Ibuprofeno 400mg">
+                    </div>
+                    <div class="form-group">
+                        <label>Fórmula Química / Activo:</label>
+                        <input type="text" id="med-formula" placeholder="Ej: Acetaminofén">
+                    </div>
+                    <div class="form-group">
+                        <label>Precio de Venta ($):</label>
+                        <input type="number" id="med-precio" value="65.00" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Proveedor Asociado [FK]:</label>
+                        <select id="med-provid"></select>
+                    </div>
+                    <button class="btn-sim btn-action" onclick="guardarMedicamento()">Guardar Medicamento</button>
+                    <button class="btn-sim btn-cancel" id="btn-cancel-med" onclick="cancelarEdicion('med')">Cancelar Edición</button>
+                </div>
+
+                <div id="form-prov" class="sub-form">
+                    <input type="hidden" id="edit-prov-id" value="">
+                    <div class="form-group">
+                        <label>Razón Social / Distribuidor:</label>
+                        <input type="text" id="prov-nombre" placeholder="Ej: Fármacos de México">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono de Contacto:</label>
+                        <input type="text" id="prov-tel" placeholder="55-XXXX-XXXX">
+                    </div>
+                    <div class="form-group">
+                        <label>Región Logística:</label>
+                        <input type="text" id="prov-region" placeholder="Ej: Chicoloapan Centro">
+                    </div>
+                    <button class="btn-sim btn-action" onclick="guardarProveedor()">Guardar Proveedor</button>
+                    <button class="btn-sim btn-cancel" id="btn-cancel-prov" onclick="cancelarEdicion('prov')">Cancelar Edición</button>
+                </div>
+                
+                <button class="btn-sim" style="background-color: #6c757d; margin-top:14px; font-size:11px; padding:6px;" onclick="restablecerTablas()">🔄 Reestablecer Base Semilla</button>
+            </div>
+        </div>
+
+        <div>
+            <div class="panel">
+                <h2>📊 Resultados de Estres Predictivo e Inferencia</h2>
+                <div class="metrics-grid">
+                    <div class="metric-card success">
+                        <h3>Mermas por Caducidad</h3>
+                        <p id="m-mermas">$0.00 MXN</p>
+                    </div>
+                    <div class="metric-card danger">
+                        <h3>Quiebres de Stock (Días)</h3>
+                        <p id="m-quiebres">0.00 Días</p>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Espera Promedio Fila (Wq)</h3>
+                        <p id="m-wq">0.0000 Hrs</p>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Uso del Servidor (ρ)</h3>
+                        <p id="m-rho">0.0%</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>📦 Vista Física del Anaquel (Trazabilidad Visual COFEPRIS)</h2>
+                <p style="font-size: 12px; color: #6c757d; margin: -5px 0 10px 0;">Los medicamentos marcados en azul claro representan los siguientes cargamentos a despachar según la matriz cronológica.</p>
+                <div class="visual-shelf" id="shelf-container"></div>
+            </div>
+
+            <div class="panel">
+                <h2>🗄️ Diccionario y Persistencia Relacional en Base de Datos (3FN)</h2>
+                <div class="db-tabs">
+                    <button class="tab-btn active" id="btn-t-lote" onclick="switchTab('lote')">TABLA: LOTE_INVENTARIO</button>
+                    <button class="tab-btn" id="btn-t-med" onclick="switchTab('med')">TABLA: MEDICAMENTO</button>
+                    <button class="tab-btn" id="btn-t-prov" onclick="switchTab('prov')">TABLA: PROVEEDOR</button>
+                </div>
+                
+                <div class="table-responsive">
+                    <table id="db-table"></table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Datos semilla iniciales del contexto académico (Chicoloapan)
+        const semillasProveedor = [
+            {id: 1, nombre: "Distribuidora Fármacos Oriente", tel: "55-4321-8765", region: "Chicoloapan Centro"},
+            {id: 2, nombre: "Nacional de Medicamentos S.A.", tel: "55-9876-5432", region: "EDOMEX Oriente"}
+        ];
+
+        const semillasMedicamento = [
+            {id: 101, nombre: "Amoxicilina 500mg (Antibiótico)", formula: "Amoxicilina Trihidratada", precio: 145.00, prov: 1},
+            {id: 102, nombre: "Paracetamol 500mg (Analgésico)", formula: "Acetaminofén", precio: 35.00, prov: 2},
+            {id: 103, nombre: "Metformina 850mg (Crónico)", formula: "Clorhidrato de Metformina", precio: 190.00, prov: 1}
+        ];
+
+        const semillasLote = [
+            {id: 1001, medId: 101, lote: "L-AMX-04", stock: 45, ingreso: "2026-01-10", caducidad: "2026-08-15", costo: 60.00},
+            {id: 1002, medId: 101, lote: "L-AMX-05", stock: 20, ingreso: "2026-04-02", caducidad: "2027-02-10", costo: 62.50},
+            {id: 1003, medId: 102, lote: "L-PAR-12", stock: 120, ingreso: "2025-11-20", caducidad: "2026-06-30", costo: 12.00},
+            {id: 1004, medId: 102, lote: "L-PAR-13", stock: 80, ingreso: "2026-03-15", caducidad: "2027-05-18", costo: 12.50},
+            {id: 1005, medId: 103, lote: "L-MET-88", stock: 35, ingreso: "2026-02-05", caducidad: "2026-07-01", costo: 85.00}
+        ];
+
+        // Estado global de las tablas con recuperación persistente desde LocalStorage
+        let tabla_proveedor = JSON.parse(localStorage.getItem('tabla_proveedor')) || semillasProveedor;
+        let tabla_medicamento = JSON.parse(localStorage.getItem('tabla_medicamento')) || semillasMedicamento;
+        let tabla_lote = JSON.parse(localStorage.getItem('tabla_lote')) || semillasLote;
+
+        let currentTab = 'lote';
+
+        // Generador de variables aleatorias con distribución exponencial continua
+        function expRandom(rate) {
+            return -Math.log(1 - Math.random()) / rate;
+        }
+
+        // Sincronizador Maestro: Almacenamiento local, actualización estructural y renderizado
+        function syncDB() {
+            localStorage.setItem('tabla_proveedor', JSON.stringify(tabla_proveedor));
+            localStorage.setItem('tabla_medicamento', JSON.stringify(tabla_medicamento));
+            localStorage.setItem('tabla_lote', JSON.stringify(tabla_lote));
+            actualizarSelectores();
+            renderTable();
+            renderShelf();
+        }
+
+        function restablecerTablas() {
+            if(confirm("¿Deseas restablecer la base de datos a los valores semilla de desarrollo?")) {
+                localStorage.clear();
+                tabla_proveedor = JSON.parse(JSON.stringify(semillasProveedor));
+                tabla_medicamento = JSON.parse(JSON.stringify(semillasMedicamento));
+                tabla_lote = JSON.parse(JSON.stringify(semillasLote));
+                syncDB();
+            }
+        }
+
+        function actualizarSelectores() {
+            const selMed = document.getElementById('lote-medid');
+            if(selMed) {
+                selMed.innerHTML = '';
+                tabla_medicamento.forEach(m => selMed.innerHTML += `<option value="${m.id}">${m.nombre}</option>`);
+            }
+            const selProv = document.getElementById('med-provid');
+            if(selProv) {
+                selProv.innerHTML = '';
+                tabla_proveedor.forEach(p => selProv.innerHTML += `<option value="${p.id}">${p.nombre}</option>`);
+            }
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.panel .db-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+            const targetBtn = document.getElementById(`btn-t-${tab}`);
+            if(targetBtn) targetBtn.classList.add('active');
+            renderTable();
+        }
+
+        function switchFormTab(type) {
+            document.querySelectorAll('#form-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.sub-form').forEach(f => f.classList.remove('active'));
+            document.getElementById(`f-tab-${type}`).classList.add('active');
+            document.getElementById(`form-${type}`).classList.add('active');
+        }
+
+        // =========================================================================
+        // CONTROLADORES OPERATIVOS CRUD (SELECCIONAR, ELIMINAR, GUARDAR/MODIFICAR)
+        // =========================================================================
+
+        // --- ENTIDAD PROVEEDOR ---
+        function guardarProveedor() {
+            const id = document.getElementById('edit-prov-id').value;
+            const nombre = document.getElementById('prov-nombre').value.trim();
+            const tel = document.getElementById('prov-tel').value.trim();
+            const region = document.getElementById('prov-region').value.trim();
+
+            if(!nombre || !tel || !region) return alert("Error: Llene todos los parámetros requeridos.");
+
+            if(id === "") { // OPERACIÓN: CREAR (INSERT INTO)
+                const nuevoId = tabla_proveedor.length > 0 ? Math.max(...tabla_proveedor.map(p=>p.id)) + 1 : 1;
+                tabla_proveedor.push({id: nuevoId, nombre, tel, region});
+            } else { // OPERACIÓN: ACTUALIZAR (UPDATE)
+                const p = tabla_proveedor.find(x => x.id === parseInt(id));
+                if(p) { p.nombre = nombre; p.tel = tel; p.region = region; }
+                cancelarEdicion('prov');
+            }
+            syncDB();
+            switchTab('prov');
+        }
+
+        function prepararEdicionProv(id) { // OPERACIÓN: SELECCIONAR PARA MODIFICAR
+            const p = tabla_proveedor.find(x => x.id === id);
+            if(!p) return;
+            switchFormTab('prov');
+            document.getElementById('edit-prov-id').value = p.id;
+            document.getElementById('prov-nombre').value = p.nombre;
+            document.getElementById('prov-tel').value = p.tel;
+            document.getElementById('prov-region').value = p.region;
+            document.getElementById('btn-cancel-prov').style.display = 'block';
+        }
+
+        function borrarProv(id) { // OPERACIÓN: BORRAR (DELETE)
+            if(tabla_medicamento.some(m => m.prov === id)) {
+                return alert("Violación de Integridad Referencial [FK]: No se puede eliminar este proveedor porque tiene medicamentos asociados en el catálogo.");
+            }
+            if(confirm("¿Confirmar eliminación física de este proveedor?")) {
+                tabla_proveedor = tabla_proveedor.filter(x => x.id !== id);
+                syncDB();
+            }
+        }
+
+        // --- ENTIDAD MEDICAMENTO ---
+        function guardarMedicamento() {
+            const id = document.getElementById('edit-med-id').value;
+            const nombre = document.getElementById('med-nombre').value.trim();
+            const formula = document.getElementById('med-formula').value.trim();
+            const precio = parseFloat(document.getElementById('med-precio').value);
+            const prov = parseInt(document.getElementById('med-provid').value);
+
+            if(!nombre || !formula || isNaN(precio) || isNaN(prov)) return alert("Error en los campos de medicamento.");
+
+            if(id === "") { // OPERACIÓN: CREAR
+                const nuevoId = tabla_medicamento.length > 0 ? Math.max(...tabla_medicamento.map(m=>m.id)) + 1 : 101;
+                tabla_medicamento.push({id: nuevoId, nombre, formula, precio, prov});
+            } else { // OPERACIÓN: ACTUALIZAR
+                const m = tabla_medicamento.find(x => x.id === parseInt(id));
+                if(m) { m.nombre = nombre; m.formula = formula; m.precio = precio; m.prov = prov; }
+                cancelarEdicion('med');
+            }
+            syncDB();
+            switchTab('med');
+        }
+
+        function prepararEdicionMed(id) { // OPERACIÓN: SELECCIONAR PARA MODIFICAR
+            const m = tabla_medicamento.find(x => x.id === id);
+            if(!m) return;
+            switchFormTab('med');
+            document.getElementById('edit-med-id').value = m.id;
+            document.getElementById('med-nombre').value = m.nombre;
+            document.getElementById('med-formula').value = m.formula;
+            document.getElementById('med-precio').value = m.precio;
+            document.getElementById('med-provid').value = m.prov;
+            document.getElementById('btn-cancel-med').style.display = 'block';
+        }
+
+        function borrarMed(id) { // OPERACIÓN: BORRAR
+            if(tabla_lote.some(l => l.medId === id)) {
+                return alert("Violación de Integridad: Existen lotes físicos estibados en almacén vinculados a esta clave de medicamento.");
+            }
+            if(confirm("¿Remover este medicamento del catálogo maestro?")) {
+                tabla_medicamento = tabla_medicamento.filter(x => x.id !== id);
+                syncDB();
+            }
+        }
+
+        // --- ENTIDAD LOTE ---
+        function guardarLote() {
+            const id = document.getElementById('edit-lote-id').value;
+            const medId = parseInt(document.getElementById('lote-medid').value);
+            const lote = document.getElementById('lote-codigo').value.trim();
+            const stock = parseInt(document.getElementById('lote-stock').value);
+            const costo = parseFloat(document.getElementById('lote-costo').value);
+            const caducidad = document.getElementById('lote-caducidad').value;
+
+            if(!lote || isNaN(stock) || isNaN(costo) || !caducidad) return alert("Llene los datos del lote físico.");
+
+            if(id === "") { // OPERACIÓN: CREAR
+                const nuevoId = tabla_lote.length > 0 ? Math.max(...tabla_lote.map(l=>l.id)) + 1 : 1001;
+                tabla_lote.push({id: nuevoId, medId, lote, stock, ingreso: "2026-06-25", caducidad, costo});
+            } else { // OPERACIÓN: ACTUALIZAR
+                const l = tabla_lote.find(x => x.id === parseInt(id));
+                if(l) { l.medId = medId; l.lote = lote; l.stock = stock; l.costo = costo; l.caducidad = caducidad; }
+                cancelarEdicion('lote');
+            }
+            syncDB();
+            switchTab('lote');
+        }
+
+        function prepararEdicionLote(id) { // OPERACIÓN: SELECCIONAR PARA MODIFICAR
+            const l = tabla_lote.find(x => x.id === id);
+            if(!l) return;
+            switchFormTab('lote');
+            document.getElementById('edit-lote-id').value = l.id;
+            document.getElementById('lote-medid').value = l.medId;
+            document.getElementById('lote-codigo').value = l.lote;
+            document.getElementById('lote-stock').value = l.stock;
+            document.getElementById('lote-costo').value = l.costo;
+            document.getElementById('lote-caducidad').value = l.caducidad;
+            document.getElementById('btn-cancel-lote').style.display = 'block';
+        }
+
+        function borrarLote(id) { // OPERACIÓN: BORRAR
+            if(confirm("¿Dar de baja permanente este lote del anaquel físico?")) {
+                tabla_lote = tabla_lote.filter(x => x.id !== id);
+                syncDB();
+            }
+        }
+
+        function cancelarEdicion(type) {
+            document.getElementById(`edit-${type}-id`).value = "";
+            document.getElementById(`btn-cancel-${type}`).style.display = 'none';
+            document.getElementById(`${type}-nombre` ? `${type}-nombre` : `${type}-codigo`).value = "";
+        }
+
+        // =========================================================================
+        // RENDERS DE INTERFAZ GRÁFICA (VISTAS RELACIONALES DINÁMICAS)
+        // =========================================================================
+        function calcularMesesRestantes(fechaCaducidad) {
+            const hoy = new Date("2026-06-25");
+            const caduc = new Date(fechaCaducidad);
+            const diffTime = caduc - hoy;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays / 30.4;
+        }
+
+        function renderTable() {
+            const table = document.getElementById('db-table');
+            let html = '';
+            
+            if(currentTab === 'prov') {
+                html = `<tr><th>Id_Proveedor [PK]</th><th>Nombre / Distribuidora</th><th>Teléfono</th><th>Región Logística</th><th style="text-align:center">Acciones</th></tr>`;
+                tabla_proveedor.forEach(p => {
+                    html += `<tr>
+                        <td><b>${p.id}</b></td>
+                        <td>${p.nombre}</td>
+                        <td>${p.tel}</td>
+                        <td>${p.region}</td>
+                        <td style="text-align:center; white-space: nowrap;">
+                            <button class="btn-crud btn-crud-edit" onclick="prepararEdicionProv(${p.id})">⚙️ Editar</button>
+                            <button class="btn-crud btn-crud-del" onclick="borrarProv(${p.id})">🗑️ Borrar</button>
+                        </td>
+                    </tr>`;
+                });
+            } else if(currentTab === 'med') {
+                html = `<tr><th>Id_Medicamento [PK]</th><th>Nombre Comercial</th><th>Fórmula Química</th><th>Precio Venta</th><th>Id_Proveedor [FK]</th><th style="text-align:center">Acciones</th></tr>`;
+                tabla_medicamento.forEach(m => {
+                    html += `<tr>
+                        <td><b>${m.id}</b></td>
+                        <td>${m.nombre}</td>
+                        <td>${m.formula}</td>
+                        <td>$${m.precio.toFixed(2)}</td>
+                        <td><span class="badge-tesch" style="font-size:11px; padding:2px 6px;">ID: ${m.prov}</span></td>
+                        <td style="text-align:center; white-space: nowrap;">
+                            <button class="btn-crud btn-crud-edit" onclick="prepararEdicionMed(${m.id})">⚙️ Editar</button>
+                            <button class="btn-crud btn-crud-del" onclick="borrarMed(${m.id})">🗑️ Borrar</button>
+                        </td>
+                    </tr>`;
+                });
+            } else {
+                html = `<tr><th>Id_Lote [PK]</th><th>Id_Medicamento [FK]</th><th>No. Lote</th><th>Stock</th><th>Fecha Caducidad</th><th>Estatus COFEPRIS</th><th style="text-align:center">Acciones</th></tr>`;
+                tabla_lote.forEach(l => {
+                    const meses = calcularMesesRestantes(l.caducidad);
+                    let indicator = `<span class="alert-indicator alert-ok">Seguro</span>`;
+                    if(meses <= 0) indicator = `<span class="alert-indicator alert-danger">Caducado</span>`;
+                    else if(meses <= 3) indicator = `<span class="alert-indicator alert-warning">Alerta Próximo</span>`;
+                    
+                    html += `<tr>
+                        <td><b>${l.id}</b></td>
+                        <td><span class="badge-tesch" style="background-color:#0dfaf0; font-size:11px; padding:2px 6px;">ID: ${l.medId}</span></td>
+                        <td><code>${l.lote}</code></td>
+                        <td><b>${l.stock} u</b></td>
+                        <td>${l.caducidad}</td>
+                        <td>${indicator}</td>
+                        <td style="text-align:center; white-space: nowrap;">
+                            <button class="btn-crud btn-crud-edit" onclick="prepararEdicionLote(${l.id})">⚙️ Editar</button>
+                            <button class="btn-crud btn-crud-del" onclick="borrarLote(${l.id})">🗑️ Borrar</button>
+                        </td>
+                    </tr>`;
+                });
+            }
+            table.innerHTML = html;
+        }
+
+        function renderShelf() {
+            const container = document.getElementById('shelf-container');
+            container.innerHTML = '';
+            let lotesOrdenados = [...tabla_lote];
+            const politica = document.getElementById('politica').value;
+            
+            if(politica === 'PEPS') {
+                lotesOrdenados.sort((a,b) => new Date(a.caducidad) - new Date(b.caducidad));
+            }
+
+            lotesOrdenados.forEach((l, index) => {
+                const med = tabla_medicamento.find(m => m.id === l.medId);
+                if(!med) return;
+                const meses = calcularMesesRestantes(l.caducidad);
+                const isNext = (politica === 'PEPS' && index === 0 && l.stock > 0 && meses > 0);
+                
+                const box = document.createElement('div');
+                box.className = `box-medicine ${isNext ? 'peps-next' : ''}`;
+                
+                let labelStyle = 'alert-ok';
+                if(meses <= 0) labelStyle = 'alert-danger';
+                else if(meses <= 3) labelStyle = 'alert-warning';
+
+                box.innerHTML = `
+                    <div class="box-title">${med.nombre}</div>
+                    <div class="box-info">Lote: <b>${l.lote}</b></div>
+                    <div class="box-info">Cantidad: <b>${l.stock} pz</b></div>
+                    <div class="box-info" style="margin-top:5px;">
+                        <span class="alert-indicator ${labelStyle}" style="font-size:9px;">
+                            ${meses <= 0 ? 'VENCIDO' : 'Cad: ' + l.caducidad}
+                        </span>
+                    </div>
+                `;
+                container.appendChild(box);
+            });
+        }
+
+        // =========================================================================
+        // MOTOR DE SIMULACIÓN ESTOCÁSTICA DE MONTECARLO (TEORÍA DE COLAS M/M/1)
+        // =========================================================================
+        function ejecutarSimulacion() {
+            const lam = parseFloat(document.getElementById('lambda').value);
+            const mu = parseFloat(document.getElementById('mu').value);
+            const hrsSim = parseFloat(document.getElementById('horas').value);
+            const numReplicas = parseInt(document.getElementById('iteraciones').value);
+            const politica = document.getElementById('politica').value;
+
+            let totalMermasGlobal = 0;
+            let totalQuiebresGlobal = 0;
+            let totalWqGlobal = 0;
+            let totalRhoGlobal = 0;
+
+            for (let r = 0; r < numReplicas; r++) {
+                let t = 0;
+                let q_mermas = 0;
+                let q_quiebres_horas = 0;
+                let fila_espera = 0;
+                let atenciones = 0;
+                let tiempo_ocupado = 0;
+
+                let lote_simulado = JSON.parse(JSON.stringify(tabla_lote));
+
+                while (t < hrsSim) {
+                    let t_llegada = expRandom(lam);
+                    t += t_llegada;
+                    if (t >= hrsSim) break;
+
+                    if(tabla_medicamento.length === 0) { q_quiebres_horas += 2; continue;}
+                    let medDemandado = tabla_medicamento[Math.floor(Math.random() * tabla_medicamento.length)].id;
+                    let pzDemandadas = Math.floor(Math.random() * 3) + 1;
+
+                    let t_servicio = expRandom(mu);
+                    fila_espera += Math.max(0, t_servicio - t_llegada);
+                    tiempo_ocupado += t_servicio;
+                    atenciones++;
+
+                    let lotesFiltrados = lote_simulado.filter(l => l.medId === medDemandado && l.stock > 0);
+                    
+                    if(politica === 'PEPS') {
+                        lotesFiltrados.sort((a,b) => new Date(a.caducidad) - new Date(b.caducidad));
+                    } else {
+                        lotesFiltrados.sort((a,b) => new Date(b.caducidad) - new Date(a.caducidad));
+                    }
+
+                    if (lotesFiltrados.length === 0) {
+                        q_quiebres_horas += 2;
+                    } else {
+                        let loteAsignado = lotesFiltrados[0];
+                        if (calcularMesesRestantes(loteAsignado.caducidad) <= 0) {
+                            q_mermas += loteAsignado.costo * pzDemandadas;
+                        }
+                        loteAsignado.stock = Math.max(0, loteAsignado.stock - pzDemandadas);
+                    }
+                }
+
+                totalMermasGlobal += q_mermas;
+                totalQuiebresGlobal += (q_quiebres_horas / 24);
+                totalWqGlobal += (fila_espera / (atenciones || 1));
+                totalRhoGlobal += Math.min(100, (tiempo_ocupado / hrsSim) * 100);
+            }
+
+            document.getElementById('m-mermas').innerText = `$${(totalMermasGlobal / numReplicas).toFixed(2)} MXN`;
+            document.getElementById('m-quiebres').innerText = `${(totalQuiebresGlobal / numReplicas).toFixed(2)} Días`;
+            document.getElementById('m-wq').innerText = `${(totalWqGlobal / numReplicas).toFixed(4)} Horas`;
+            document.getElementById('m-rho').innerText = `${(totalRhoGlobal / numReplicas).toFixed(1)}%`;
+
+            if(politica === 'PEPS') {
+                tabla_lote.forEach(l => { if (l.stock > 5) l.stock -= Math.floor(Math.random() * 4); });
+            } else {
+                tabla_lote.forEach(l => { 
+                    if(calcularMesesRestantes(l.caducidad) < 1) l.stock = Math.max(0, l.stock - 2);
+                });
+            }
+            syncDB();
+        }
+
+        // Inicialización nativa al cargar la ventana del navegador
+        window.onload = function() {
+            syncDB();
+        };
+    </script>
+</body>
+</html>
